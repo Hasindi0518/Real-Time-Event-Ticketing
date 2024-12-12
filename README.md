@@ -48,7 +48,3 @@ The system logs all significant events, such as ticket additions and purchases, 
 ## Conclusion
 
 This project demonstrates a simple yet effective way to manage a real-time event ticketing system using Java. It covers essential concepts such as configuration management, thread synchronization, and logging, making it a useful reference for similar applications.
-
----
-
-Feel free to ask if you need more details or have any specific questions!
