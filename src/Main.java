@@ -1,16 +1,30 @@
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.InputMismatchException;
 import java.util.Scanner;
 
+/**
+ * The main class initialize and manage the real-time event ticketing system.
+ */
 public class Main {
-    public static void main(String[] args) {
-        final String CONFIG_FILE = "ticket_config.json";
-        Configuration config = loadOrCreateConfiguration(CONFIG_FILE);
+    private static final String LOG_FILE = "log.txt";   //txt file name
 
+    public static void main(String[] args) {
+        final String CONFIG_FILE = "ticket_config.json";   //json file
+        clearLogFile(); // Clear previous log file at the start
+
+        // Load or create the configuration for the ticketing system
+        Configuration config = loadOrCreateConfiguration(CONFIG_FILE);  // Load or create configuration
+        log("Configuration loaded: " + config);
+
+        // Exit if configuration failed
         if (config == null) {
-            System.out.println("Failed to load or create configuration. Exiting.");
+            log("Failed to load or create configuration. Exiting.");
             return;
         }
 
+        //Initialize ticket pool
         TicketPool ticketPool = new TicketPool(config.getMaxTicketCapacity(), config.getTotalTickets());
 
         int vendorCount = 3;
@@ -23,14 +37,14 @@ public class Main {
         Customer[] customers = new Customer[customerCount];
 
         try {
-            // Start vendors
+            // Start vendors thread
             for (int i = 0; i < vendorCount; i++) {
                 vendors[i] = new Vendor(i + 1, ticketPool, config.getTicketReleaseRate());
                 vendorThreads[i] = new Thread(vendors[i], "Vendor-" + (i + 1));
                 vendorThreads[i].start();
             }
 
-            // Start customers
+            // Start customers thread
             for (int i = 0; i < customerCount; i++) {
                 customers[i] = new Customer(i + 1, ticketPool, config.getCustomerRetrievalRate());
                 customerThreads[i] = new Thread(customers[i], "Customer-" + (i + 1));
@@ -39,60 +53,91 @@ public class Main {
 
             // Command-line menu
             Scanner scanner = new Scanner(System.in);
-            System.out.println("\n**** Ticketing System Menu ****");
-            System.out.println("1. Stop");
+            log("**** Ticketing System Menu ****");
+            log("1. Stop");
 
             while (true) {
                 try {
-
                     int choice = scanner.nextInt();
+                    log("User choice: " + choice);
+
+                    //to stop system.
                     if (choice == 1) {
-                        System.out.println("Stopping system...");
-                        for (Vendor vendor : vendors) vendor.stop();
-                        for (Customer customer : customers) customer.stop();
+                        log("Stopping system...");
+                        for (Vendor vendor : vendors)
+                            vendor.stop();
+                        for (Customer customer : customers)
+                            customer.stop();
 
                         for (Thread thread : vendorThreads)
                             thread.interrupt();
-                            scanner.close();
                         for (Thread thread : customerThreads)
                             thread.interrupt();
-                            scanner.close();
-                        System.out.println("System stopped successfully.");
+
+                        log("System stopped successfully.");
                         break;
                     } else {
-                        System.out.println("Invalid choice! Enter 1 to stop.");
+                        log("Invalid choice! Enter 1 to stop.");
                     }
                 } catch (InputMismatchException e) {
-                    System.out.println("Invalid input! Please enter a numeric value.");
+                    log("Invalid input! Please enter a numeric value.");
                     scanner.nextLine(); // Clear buffer
                 }
             }
         } catch (Exception e) {
-            System.out.println("An error occurred: " + e.getMessage());
+            log("An error occurred: " + e.getMessage());
         }
     }
 
+    // Loads or creates a configuration file
     private static Configuration loadOrCreateConfiguration(String filePath) {
         Configuration config = Configuration.loadConfigurationFromFile(filePath);
         if (config != null) {
-            System.out.println("Previous configuration found.");
-            System.out.println("1. Use previous configuration");
-            System.out.println("2. Enter new configuration");
+            log("Previous configuration found.");
+            log("1. Use previous configuration");
+            log("2. Enter new configuration");
 
             Scanner scanner = new Scanner(System.in);
             try {
+                log("Enter your choice: ");
                 int choice = scanner.nextInt();
-                if (choice == 1) return config;
+                if (choice == 1) {
+                    log("** Using previous configuration **");
+                    return config;
+                } else if (choice == 2) {
+                    log("** Start entering new configuration **");
+                } else {
+                    log("Invalid input. Try again.");
+                }
             } catch (InputMismatchException e) {
-                System.out.println("Invalid input! Defaulting to new configuration.");
+                log("Invalid input! Defaulting to new configuration.");
                 scanner.nextLine(); // Clear buffer
             }
         }
 
-        System.out.println("Enter new configuration:");
+        log("Enter new configuration");
         Configuration newConfig = Configuration.configureFromInput();
         newConfig.saveConfigurationToFile(filePath);
-        System.out.println("New configuration saved.");
+        log("New configuration saved.");
         return newConfig;
+    }
+
+    // Logs a message to file
+    public static void log(String message) {
+        System.out.println(message);
+        try (FileWriter fw = new FileWriter(LOG_FILE, true); PrintWriter pw = new PrintWriter(fw)) {
+            pw.println(message);
+        } catch (IOException e) {
+            System.out.println("Failed to write to log file: " + e.getMessage());
+        }
+    }
+
+    // Clears the log file at startup
+    private static void clearLogFile() {
+        try (FileWriter fw = new FileWriter(LOG_FILE, false)) {
+            fw.write(""); // Overwrite the file with an empty string
+        } catch (IOException e) {
+            System.out.println("Failed to clear log file: " + e.getMessage());
+        }
     }
 }
